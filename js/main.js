@@ -12,7 +12,19 @@
 
   var mqMobile = window.matchMedia("(max-width: 820px)");
   var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  var canHover = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  // any-*: a touchscreen laptop's primary input is touch, but its mouse/trackpad still hovers
+  var canHover = window.matchMedia("(any-hover: hover) and (any-pointer: fine)").matches;
+
+  // Run fn once a mouse is known to be present. The media query is wrong on some
+  // touchscreen laptops, so a real mouse movement also counts.
+  function whenMouse(fn) {
+    if (canHover) { fn(); return; }
+    window.addEventListener("pointermove", function onMove(e) {
+      if (e.pointerType !== "mouse") return;
+      window.removeEventListener("pointermove", onMove);
+      fn();
+    });
+  }
   var animated = typeof window.gsap !== "undefined" && typeof window.ScrollTrigger !== "undefined" && !reduceMotion;
   var canSplit = animated && typeof window.SplitText !== "undefined";
 
@@ -128,55 +140,33 @@
   root.classList.add("gsap");
   gsap.registerPlugin(ScrollTrigger);
   if (canSplit) gsap.registerPlugin(SplitText);
-  gsap.defaults({ ease: "power3.out", duration: 0.9 });
+  gsap.defaults({ ease: "power3.out", duration: 0.6 });
 
-  /* ---------- Page transition ---------- */
-  function isInternal(a) {
-    var href = a.getAttribute("href");
-    return (
-      href && a.target !== "_blank" && a.origin === window.location.origin &&
-      !/^(#|mailto:|tel:)/.test(href) && a.pathname !== window.location.pathname
-    );
-  }
-  document.querySelectorAll("a[href]").forEach(function (a) {
-    if (!isInternal(a)) return;
-    a.addEventListener("click", function (e) {
-      if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
-      e.preventDefault();
-      gsap.set(wipe, { transformOrigin: "bottom" });
-      gsap.to(wipe, {
-        scaleY: 1, duration: 0.35, ease: "power3.inOut",
-        onComplete: function () { window.location.href = a.href; }
-      });
-    });
-  });
-  // Back/forward cache restores the page with the wipe still covering it
-  window.addEventListener("pageshow", function (e) {
-    if (e.persisted) gsap.set(wipe, { scaleY: 0 });
-  });
-
-  /* ---------- Intro ---------- */
-  var intro = gsap.timeline({ onComplete: function () { initHeaderAutoHide(); initIdleMotion(); } });
-  intro.to(wipe, { scaleY: 0, transformOrigin: "top", duration: 0.75, ease: "power4.inOut" });
-  intro.from(header, { y: -30, autoAlpha: 0, duration: 0.7, clearProps: "all" }, "-=0.35");
+  /* ---------- Intro ----------
+     Links navigate immediately: nothing is animated between a click and the next page. */
+  var intro = gsap.timeline({ onComplete: function () { initHeaderAutoHide(); whenMouse(initHeroParallax); } });
+  // the cover only hides the unstyled first frame, so it clears quickly
+  intro.to(wipe, { autoAlpha: 0, duration: 0.3, ease: "power2.out" });
+  intro.from(header, { y: -16, autoAlpha: 0, duration: 0.45, clearProps: "all" }, "-=0.2");
 
   var heroLines = gsap.utils.toArray("h1 .line > span");
   if (heroLines.length) {
-    intro.from(heroLines, { yPercent: 110, duration: 1.1, stagger: 0.1, ease: "power4.out" }, "-=0.55");
+    intro.from(heroLines, { yPercent: 110, duration: 0.8, stagger: 0.07, ease: "power4.out" }, "-=0.35");
   }
-  intro.from("[data-intro]", { y: 26, autoAlpha: 0, stagger: 0.09 }, "-=0.8");
+  intro.from("[data-intro]", { y: 18, autoAlpha: 0, stagger: 0.06 }, "-=0.55");
   intro.add(function () {
     gsap.utils.toArray(".eyebrow[data-intro]").forEach(function (el) { el.classList.add("is-in"); });
-  }, "-=0.6");
+  }, "-=0.45");
 
   if (document.querySelector(".hero-art")) {
     intro
-      .from(".sheet--back", { autoAlpha: 0, rotate: 0, x: 0, y: 40, duration: 1 }, "-=1")
-      .from(".sheet--main", { autoAlpha: 0, y: 70, rotate: 4, duration: 1.1 }, "-=0.9")
-      .from(".sheet-list li", { autoAlpha: 0, x: -16, stagger: 0.12, duration: 0.5 }, "-=0.5")
-      .from(".stamp", { autoAlpha: 0, scale: 1.8, duration: 0.45, ease: "back.out(2.2)" }, "-=0.1")
-      .from(".chip", { autoAlpha: 0, scale: 0.9, duration: 0.4 }, "-=0.15")
-      .from(".float-card", { autoAlpha: 0, y: 30, scale: 0.95, duration: 0.7 }, "-=0.35");
+      .from(".sheet--back", { autoAlpha: 0, rotate: 0, x: 0, y: 30, duration: 0.7 }, "-=0.75")
+      .from(".sheet--main", { autoAlpha: 0, y: 44, rotate: 2, duration: 0.8 }, "-=0.65")
+      .from(".sheet-list li", { autoAlpha: 0, x: -12, stagger: 0.07, duration: 0.4 }, "-=0.4")
+      // settles without overshoot: nothing threw it, so nothing should bounce
+      .from(".stamp", { autoAlpha: 0, scale: 1.3, duration: 0.35 }, "-=0.1")
+      .from(".chip", { autoAlpha: 0, scale: 0.9, duration: 0.3 }, "-=0.2")
+      .from(".float-card", { autoAlpha: 0, y: 20, scale: 0.97, duration: 0.5 }, "-=0.3");
 
     gsap.to(".hero-art", {
       yPercent: -10, ease: "none",
@@ -192,28 +182,19 @@
     });
   });
 
-  // Slow breathing glow behind every hero
-  gsap.to(".hero-glow", { scale: 1.18, opacity: 0.7, duration: 4, ease: "sine.inOut", yoyo: true, repeat: -1 });
-
-  /* ---------- Hero card keeps floating once the intro has finished ---------- */
-  function initIdleMotion() {
-    if (!document.querySelector(".hero-art")) return;
-    gsap.to(".sheet--main", { y: -12, rotation: -0.5, duration: 3.2, ease: "sine.inOut", yoyo: true, repeat: -1 });
-    gsap.to(".float-card", { y: -9, duration: 2.4, ease: "sine.inOut", yoyo: true, repeat: -1 });
-    gsap.to(".stamp", { rotation: -5, duration: 2.8, ease: "sine.inOut", yoyo: true, repeat: -1 });
-
-    if (!canHover) return;
-    // Layers shift against the cursor for depth
+  // The hero card moves only in response to the pointer; it does not drift on its own
+  function initHeroParallax() {
     var hero = document.querySelector(".hero");
-    var artX = gsap.quickTo(".hero-art", "x", { duration: 0.8, ease: "power3" });
-    var artY = gsap.quickTo(".hero-art", "y", { duration: 0.8, ease: "power3" });
-    var backX = gsap.quickTo(".sheet--back", "xPercent", { duration: 1.1, ease: "power3" });
-    var backY = gsap.quickTo(".sheet--back", "yPercent", { duration: 1.1, ease: "power3" });
+    if (!hero || !hero.querySelector(".hero-art")) return;
+    var artX = gsap.quickTo(".hero-art", "x", { duration: 0.5, ease: "power3" });
+    var artY = gsap.quickTo(".hero-art", "y", { duration: 0.5, ease: "power3" });
+    var backX = gsap.quickTo(".sheet--back", "xPercent", { duration: 0.7, ease: "power3" });
+    var backY = gsap.quickTo(".sheet--back", "yPercent", { duration: 0.7, ease: "power3" });
     hero.addEventListener("mousemove", function (e) {
       var px = e.clientX / window.innerWidth - 0.5;
       var py = e.clientY / window.innerHeight - 0.5;
-      artX(px * -26); artY(py * -18);
-      backX(px * 7); backY(py * 5);
+      artX(px * -16); artY(py * -10);
+      backX(px * 4); backY(py * 3);
     });
     hero.addEventListener("mouseleave", function () { artX(0); artY(0); backX(0); backY(0); });
   }
@@ -238,7 +219,7 @@
         if (hide === hidden) return;
         hidden = hide;
         gsap.to(header, {
-          yPercent: hide ? -100 : 0, duration: 0.45, overwrite: true,
+          yPercent: hide ? -100 : 0, duration: 0.35, overwrite: true,
           onComplete: function () { if (!hide) gsap.set(header, { clearProps: "transform" }); }
         });
       }
@@ -253,7 +234,7 @@
         type: "lines", mask: "lines", linesClass: "split-line", autoSplit: true,
         onSplit: function (self) {
           return gsap.from(self.lines, {
-            yPercent: 110, duration: 1, stagger: 0.1, ease: "power4.out",
+            yPercent: 110, duration: 0.7, stagger: 0.07, ease: "power4.out",
             scrollTrigger: { trigger: h2, start: "top 88%", once: true }
           });
         }
@@ -273,14 +254,14 @@
       }
     }
     gsap.from(targets, {
-      y: 44, autoAlpha: 0, stagger: 0.1,
+      y: 24, autoAlpha: 0, stagger: 0.06,
       scrollTrigger: { trigger: el, start: "top 88%", once: true }
     });
   });
 
   gsap.utils.toArray("[data-stagger]").forEach(function (group) {
     gsap.from(group.children, {
-      y: 44, autoAlpha: 0, stagger: 0.1,
+      y: 24, autoAlpha: 0, stagger: 0.06,
       scrollTrigger: { trigger: group, start: "top 85%", once: true }
     });
   });
@@ -295,7 +276,7 @@
 
   gsap.utils.toArray(".timeline").forEach(function (list) {
     gsap.from(list.children, {
-      x: -24, autoAlpha: 0, stagger: 0.25,
+      x: -16, autoAlpha: 0, stagger: 0.12,
       scrollTrigger: { trigger: list, start: "top 80%", once: true }
     });
   });
@@ -303,36 +284,36 @@
   /* ---------- Smaller pieces inside the sections ---------- */
   gsap.utils.toArray(".facts").forEach(function (facts) {
     gsap.from(facts.querySelectorAll(".fact"), {
-      y: 30, autoAlpha: 0, stagger: 0.1, delay: 0.6,
+      y: 20, autoAlpha: 0, stagger: 0.06, delay: 0.3,
       scrollTrigger: { trigger: facts, start: "top 95%", once: true }
     });
   });
 
   gsap.utils.toArray("main .icon").forEach(function (icon) {
     gsap.from(icon, {
-      scale: 0.8, autoAlpha: 0, duration: 0.6,
+      scale: 0.9, autoAlpha: 0, duration: 0.4,
       scrollTrigger: { trigger: icon, start: "top 90%", once: true }
     });
   });
 
   gsap.utils.toArray(".ticks").forEach(function (list) {
     gsap.from(list.children, {
-      x: -18, autoAlpha: 0, duration: 0.6, stagger: 0.12,
+      x: -12, autoAlpha: 0, duration: 0.4, stagger: 0.06,
       scrollTrigger: { trigger: list, start: "top 90%", once: true }
     });
   });
 
   gsap.utils.toArray("main .badge").forEach(function (el) {
     gsap.from(el, {
-      scale: 0.9, autoAlpha: 0, duration: 0.5,
+      scale: 0.95, autoAlpha: 0, duration: 0.35,
       scrollTrigger: { trigger: el, start: "top 92%", once: true }
     });
   });
 
   // Service numbers drift past their rows
   gsap.utils.toArray(".service-row .num").forEach(function (num) {
-    gsap.fromTo(num, { y: 36 }, {
-      y: -36, ease: "none",
+    gsap.fromTo(num, { y: 16 }, {
+      y: -16, ease: "none",
       scrollTrigger: { trigger: num.parentNode, start: "top bottom", end: "bottom top", scrub: true }
     });
   });
@@ -369,7 +350,7 @@
   });
 
   gsap.from(".footer-grid > *", {
-    y: 30, autoAlpha: 0, stagger: 0.08,
+    y: 20, autoAlpha: 0, stagger: 0.05,
     scrollTrigger: { trigger: ".site-footer", start: "top 95%", once: true }
   });
 
@@ -379,7 +360,7 @@
     var pad = el.textContent.trim().length;
     var state = { v: parseInt(el.getAttribute("data-from") || "0", 10) };
     gsap.to(state, {
-      v: end, duration: 1.6, ease: "power2.out",
+      v: end, duration: 1, ease: "power2.out",
       scrollTrigger: { trigger: el, start: "top 92%", once: true },
       onUpdate: function () {
         el.textContent = String(Math.round(state.v)).padStart(pad, "0");
@@ -402,10 +383,10 @@
   });
 
   /* ---------- Press feedback ---------- */
-  gsap.utils.toArray(".btn").forEach(function (btn) {
+  gsap.utils.toArray(".btn, .nav-toggle").forEach(function (btn) {
     function release() { gsap.to(btn, { scale: 1, duration: 0.25, overwrite: "auto" }); }
     btn.addEventListener("pointerdown", function () {
-      gsap.to(btn, { scale: 0.97, duration: 0.12, overwrite: "auto" });
+      gsap.to(btn, { scale: 0.97, duration: 0.1, overwrite: "auto" });
     });
     btn.addEventListener("pointerup", release);
     btn.addEventListener("pointerleave", release);
@@ -413,65 +394,26 @@
   });
 
   /* ---------- Hover interactions ---------- */
-  if (!canHover) return;
+  whenMouse(initHover);
 
-  // Logo mark tips over on hover
-  gsap.utils.toArray(".logo").forEach(function (logo) {
-    var mark = logo.querySelector(".logo-mark");
-    logo.addEventListener("mouseenter", function () { gsap.to(mark, { rotation: -8, scale: 1.06, duration: 0.3 }); });
-    logo.addEventListener("mouseleave", function () { gsap.to(mark, { rotation: 0, scale: 1, duration: 0.3 }); });
-  });
+  function initHover() {
 
-  gsap.utils.toArray(".card, .value").forEach(function (card) {
-    gsap.set(card, { transformPerspective: 900 });
+  // Only cards that lead somewhere lift; a card that lifts but does nothing reads as broken
+  gsap.utils.toArray(".card").forEach(function (card) {
+    if (!card.querySelector("a")) return;
     card.addEventListener("mouseenter", function () {
-      gsap.to(card, { y: -6, boxShadow: "0 24px 48px rgba(11, 26, 43, 0.1)", duration: 0.4, overwrite: "auto" });
-    });
-    // tilt towards the cursor
-    card.addEventListener("mousemove", function (e) {
-      var r = card.getBoundingClientRect();
-      gsap.to(card, {
-        rotationY: ((e.clientX - r.left) / r.width - 0.5) * 7,
-        rotationX: ((e.clientY - r.top) / r.height - 0.5) * -7,
-        duration: 0.5, overwrite: "auto"
-      });
+      gsap.to(card, { y: -4, boxShadow: "0 18px 40px rgba(4, 6, 6, 0.1)", duration: 0.3, overwrite: "auto" });
     });
     card.addEventListener("mouseleave", function () {
-      gsap.to(card, {
-        y: 0, rotationX: 0, rotationY: 0, boxShadow: "0 0px 0px rgba(11, 26, 43, 0)",
-        duration: 0.6, overwrite: "auto"
-      });
-    });
-  });
-
-  /* Cursor ring that trails the pointer and grows over anything clickable */
-  var ring = document.createElement("div");
-  ring.className = "cursor-ring";
-  document.body.appendChild(ring);
-  var ringX = gsap.quickTo(ring, "x", { duration: 0.45, ease: "power3" });
-  var ringY = gsap.quickTo(ring, "y", { duration: 0.45, ease: "power3" });
-  var ringShown = false;
-  window.addEventListener("mousemove", function (e) {
-    ringX(e.clientX); ringY(e.clientY);
-    if (!ringShown) { ringShown = true; gsap.to(ring, { autoAlpha: 1, duration: 0.3 }); }
-  });
-  document.documentElement.addEventListener("mouseleave", function () {
-    ringShown = false; gsap.to(ring, { autoAlpha: 0, duration: 0.3 });
-  });
-  gsap.utils.toArray("a, button").forEach(function (el) {
-    el.addEventListener("mouseenter", function () {
-      gsap.to(ring, { scale: 1.9, backgroundColor: "rgba(200, 151, 62, 0.16)", duration: 0.35 });
-    });
-    el.addEventListener("mouseleave", function () {
-      gsap.to(ring, { scale: 1, backgroundColor: "rgba(200, 151, 62, 0)", duration: 0.35 });
+      gsap.to(card, { y: 0, boxShadow: "0 0px 0px rgba(4, 6, 6, 0)", duration: 0.4, overwrite: "auto" });
     });
   });
 
   gsap.utils.toArray(".btn, .link-arrow").forEach(function (el) {
     var arrow = el.querySelector("svg");
     if (!arrow) return;
-    el.addEventListener("mouseenter", function () { gsap.to(arrow, { x: 5, duration: 0.3 }); });
-    el.addEventListener("mouseleave", function () { gsap.to(arrow, { x: 0, duration: 0.3 }); });
+    el.addEventListener("mouseenter", function () { gsap.to(arrow, { x: 4, duration: 0.25 }); });
+    el.addEventListener("mouseleave", function () { gsap.to(arrow, { x: 0, duration: 0.25 }); });
   });
 
   // Buttons lean towards the cursor
@@ -479,21 +421,22 @@
     btn.addEventListener("pointermove", function (e) {
       var r = btn.getBoundingClientRect();
       gsap.to(btn, {
-        x: (e.clientX - r.left - r.width / 2) * 0.25,
-        y: (e.clientY - r.top - r.height / 2) * 0.35,
-        duration: 0.4, overwrite: "auto"
+        x: (e.clientX - r.left - r.width / 2) * 0.1,
+        y: (e.clientY - r.top - r.height / 2) * 0.14,
+        duration: 0.3, overwrite: "auto"
       });
     });
     btn.addEventListener("pointerleave", function () {
-      gsap.to(btn, { x: 0, y: 0, duration: 0.5, overwrite: "auto" });
+      gsap.to(btn, { x: 0, y: 0, duration: 0.4, overwrite: "auto" });
     });
   });
 
   // Nav underline is drawn from the --u custom property
   gsap.utils.toArray(".nav-links a").forEach(function (a) {
-    a.addEventListener("mouseenter", function () { gsap.to(a, { "--u": 1, duration: 0.35 }); });
+    a.addEventListener("mouseenter", function () { gsap.to(a, { "--u": 1, duration: 0.25 }); });
     a.addEventListener("mouseleave", function () {
-      gsap.to(a, { "--u": a.classList.contains("is-active") ? 1 : 0, duration: 0.35 });
+      gsap.to(a, { "--u": a.classList.contains("is-active") ? 1 : 0, duration: 0.25 });
     });
   });
+  }
 })();
