@@ -107,6 +107,172 @@
     }
   });
 
+  /* ---------- Expertise deck (home hero) ----------
+     Click the card for the next one, or drag it: it follows the pointer, and on release
+     either gets thrown off (carrying the pointer's speed) or springs back. */
+  var deck = document.querySelector("[data-deck]");
+  if (deck) {
+    var cards = Array.prototype.slice.call(deck.querySelectorAll(".sheet--main"));
+    var dots = Array.prototype.slice.call(deck.querySelectorAll(".deck-dot"));
+    var current = 0;
+    var REST_ROTATION = -2;   // matches .sheet--main in the stylesheet
+    var suppressClick = false;
+
+    // Spring driven by the GSAP ticker. Unlike a tween it starts with a velocity, so a
+    // released card keeps moving at the speed the pointer had.
+    var spring = function (from, to, velocity, response, damping, onUpdate, onRest) {
+      var x = from, v = velocity;
+      var k = Math.pow((2 * Math.PI) / response, 2), c = 2 * damping * Math.sqrt(k);
+      var tick = function (time, deltaMs) {
+        var dt = Math.min(deltaMs, 32) / 2000;   // two sub-steps per frame
+        for (var i = 0; i < 2; i++) { v += (-k * (x - to) - c * v) * dt; x += v * dt; }
+        if (Math.abs(x - to) < 0.5 && Math.abs(v) < 5) {
+          gsap.ticker.remove(tick);
+          onUpdate(to);
+          if (onRest) onRest();
+          return;
+        }
+        onUpdate(x);
+      };
+      gsap.ticker.add(tick);
+      return function () { gsap.ticker.remove(tick); };
+    };
+
+    var stopSpring = function (card) {
+      if (card._stop) { card._stop(); card._stop = null; }
+    };
+
+    var showCard = function (i, thrown) {
+      i = (i + cards.length) % cards.length;
+      if (i === current) return;
+      var prev = cards[current], next = cards[i];
+      // read what is on screen now, so a swap that interrupts another carries on from there
+      var prevOpacity = getComputedStyle(prev).opacity;
+      var nextOpacity = getComputedStyle(next).opacity;
+      current = i;
+      cards.forEach(function (c, n) { c.classList.toggle("is-active", n === i); });
+      dots.forEach(function (d, n) { d.setAttribute("aria-current", String(n === i)); });
+      if (!animated) return;
+
+      stopSpring(next);
+      gsap.set(prev, { autoAlpha: prevOpacity });
+      if (!thrown) {
+        // old card slips to the back
+        gsap.to(prev, { autoAlpha: 0, x: 40, rotation: 4, duration: 0.3, ease: "power2.out", overwrite: true, clearProps: "all" });
+      }
+      // new card rises into place; if it was still on its way out it turns round from where it is
+      gsap.set(next, { autoAlpha: nextOpacity });
+      if (nextOpacity < 0.05) gsap.set(next, { x: 0, y: 26, scale: 0.97, rotation: REST_ROTATION });
+      gsap.to(next, {
+        autoAlpha: 1, x: 0, y: 0, scale: 1, rotation: REST_ROTATION,
+        duration: 0.45, ease: "power3.out", overwrite: true, clearProps: "all"
+      });
+      gsap.fromTo(next.querySelectorAll(".sheet-list li"), { autoAlpha: 0, x: -10 },
+        { autoAlpha: 1, x: 0, duration: 0.35, stagger: 0.05, delay: 0.1, ease: "power3.out", overwrite: true, clearProps: "all" });
+    };
+
+    deck.addEventListener("click", function (e) {
+      if (suppressClick) { suppressClick = false; return; }
+      var dot = e.target.closest(".deck-dot");
+      if (dot) { showCard(dots.indexOf(dot)); return; }
+      // "Read more" is a normal link and opens the service page
+      if (e.target.closest("a")) return;
+      if (e.target.closest(".sheet--main")) showCard(current + 1);
+    });
+
+    // where a card released at this speed would come to rest (same decay as scrolling)
+    var project = function (velocity) { return (velocity / 1000) * 0.995 / (1 - 0.995); };
+
+    if (animated) cards.forEach(function (card) {
+      var tracking = false, dragging = false, startX = 0, startOffset = 0, history = [];
+      var peek = null;   // the card underneath, while this one is being pulled away
+      var place = function (x) {
+        gsap.set(card, { x: x, rotation: REST_ROTATION + x * 0.03 });
+        if (!peek) return;
+        // the next card comes up as this one leaves, so the drag shows where it is heading
+        var p = Math.min(Math.abs(x) / (card.offsetWidth * 0.6), 1);
+        gsap.set(peek, { autoAlpha: p, y: 26 * (1 - p), scale: 0.97 + 0.03 * p });
+      };
+      var unpress = function () { gsap.to(card, { scale: 1, duration: 0.25, overwrite: "auto" }); };
+
+      card.addEventListener("pointerdown", function (e) {
+        if (e.pointerType === "mouse" && e.button !== 0) return;
+        if (card !== cards[current] || e.target.closest("a")) return;
+        // catching a card that is still springing back: take it from where it is
+        stopSpring(card);
+        gsap.killTweensOf(card, "x,rotation");
+        tracking = true; dragging = false;
+        startX = e.clientX;
+        startOffset = Number(gsap.getProperty(card, "x")) || 0;
+        history = [{ x: e.clientX, t: e.timeStamp }];
+        // the card answers the press itself; the swap still waits for the release
+        gsap.to(card, { scale: 0.985, duration: 0.1, overwrite: "auto" });
+      });
+
+      // pressed, then slid off the card without dragging it: nothing was chosen
+      card.addEventListener("pointerleave", function () {
+        if (!tracking || dragging) return;
+        tracking = false;
+        unpress();
+      });
+
+      card.addEventListener("pointermove", function (e) {
+        if (!tracking) return;
+        if (!dragging) {
+          // small movements are still a click
+          if (Math.abs(e.clientX - startX) < 10) return;
+          dragging = true;
+          startX = e.clientX;
+          card.setPointerCapture(e.pointerId);
+          unpress();
+          // lift this card above the one it uncovers
+          peek = cards[(current + 1) % cards.length];
+          stopSpring(peek);
+          gsap.killTweensOf(peek);
+          gsap.set(peek, { x: 0, rotation: REST_ROTATION });
+          gsap.set(card, { zIndex: 2 });
+        }
+        place(startOffset + e.clientX - startX);
+        history.push({ x: e.clientX, t: e.timeStamp });
+        if (history.length > 6) history.shift();
+      });
+
+      var release = function (e) {
+        if (!tracking) return;
+        tracking = false;
+        if (!dragging) { unpress(); return; }
+        dragging = false;
+        suppressClick = true;
+        setTimeout(function () { suppressClick = false; }, 0);
+
+        var first = history[0], last = history[history.length - 1];
+        var velocity = last.t > first.t ? ((last.x - first.x) / (last.t - first.t)) * 1000 : 0;
+        var x = Number(gsap.getProperty(card, "x")) || 0;
+        var width = card.offsetWidth;
+        var landing = x + project(velocity);
+
+        if (e.type !== "pointercancel" && Math.abs(landing) > width * 0.4) {
+          // thrown: keeps its speed, fades as it leaves, and the next card comes up underneath
+          var exit = (landing > 0 ? 1 : -1) * width * 1.3;
+          peek = null;   // showCard takes the next card on from where the drag left it
+          showCard(current + 1, true);
+          card._stop = spring(x, exit, velocity, 0.4, 1, function (v) {
+            place(v);
+            gsap.set(card, { autoAlpha: Math.max(0, 1 - Math.abs(v / exit)) });
+          }, function () { card._stop = null; gsap.set(card, { clearProps: "all" }); });
+        } else {
+          // not far or fast enough: springs home, with a little bounce because it was moving
+          card._stop = spring(x, 0, velocity, 0.4, 0.8, place, function () {
+            card._stop = null; gsap.set(card, { clearProps: "all" });
+            if (peek) { gsap.set(peek, { clearProps: "all" }); peek = null; }
+          });
+        }
+      };
+      card.addEventListener("pointerup", release);
+      card.addEventListener("pointercancel", release);
+    });
+  }
+
   /* ---------- Contact form: compose an email ---------- */
   var form = document.querySelector("[data-contact-form]");
   if (form) {
@@ -161,12 +327,11 @@
   if (document.querySelector(".hero-art")) {
     intro
       .from(".sheet--back", { autoAlpha: 0, rotate: 0, x: 0, y: 30, duration: 0.7 }, "-=0.75")
-      .from(".sheet--main", { autoAlpha: 0, y: 44, rotate: 2, duration: 0.8 }, "-=0.65")
-      .from(".sheet-list li", { autoAlpha: 0, x: -12, stagger: 0.07, duration: 0.4 }, "-=0.4")
-      // settles without overshoot: nothing threw it, so nothing should bounce
-      .from(".stamp", { autoAlpha: 0, scale: 1.3, duration: 0.35 }, "-=0.1")
-      .from(".chip", { autoAlpha: 0, scale: 0.9, duration: 0.3 }, "-=0.2")
-      .from(".float-card", { autoAlpha: 0, y: 20, scale: 0.97, duration: 0.5 }, "-=0.3");
+      .from(".sheet--main.is-active", { autoAlpha: 0, y: 44, rotate: 2, duration: 0.8, clearProps: "all" }, "-=0.65")
+      .from(".sheet--main.is-active .sheet-list li", { autoAlpha: 0, x: -12, stagger: 0.07, duration: 0.4, clearProps: "all" }, "-=0.4")
+      .from(".sheet--main.is-active .sheet-foot", { autoAlpha: 0, y: 10, duration: 0.35, clearProps: "all" }, "-=0.2")
+      .from(".float-card", { autoAlpha: 0, y: 20, scale: 0.97, duration: 0.5 }, "-=0.3")
+      .from(".deck-nav", { autoAlpha: 0, duration: 0.4 }, "-=0.3");
 
     gsap.to(".hero-art", {
       yPercent: -10, ease: "none",
@@ -357,13 +522,14 @@
   /* ---------- Counters ---------- */
   gsap.utils.toArray("[data-count]").forEach(function (el) {
     var end = parseInt(el.getAttribute("data-count"), 10);
-    var pad = el.textContent.trim().length;
+    var suffix = el.getAttribute("data-suffix") || "";
+    var pad = el.textContent.trim().length - suffix.length;
     var state = { v: parseInt(el.getAttribute("data-from") || "0", 10) };
     gsap.to(state, {
       v: end, duration: 1, ease: "power2.out",
       scrollTrigger: { trigger: el, start: "top 92%", once: true },
       onUpdate: function () {
-        el.textContent = String(Math.round(state.v)).padStart(pad, "0");
+        el.textContent = String(Math.round(state.v)).padStart(pad, "0") + suffix;
       }
     });
   });
@@ -392,6 +558,32 @@
     btn.addEventListener("pointerleave", release);
     btn.addEventListener("pointercancel", release);
   });
+
+  /* ---------- Arriving on a #section link ----------
+     The browser's smooth scroll to the section gets cut short by ScrollTrigger's first
+     refresh, so each link stopped somewhere different. Jump straight to it instead, and
+     again whenever the layout settles, until the visitor starts moving the page. */
+  var landing = location.hash.length > 1 && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+  if (landing) {
+    var land = function () {
+      // measure where the section rests, not where its reveal animation currently has it
+      var top = landing.getBoundingClientRect().top + window.scrollY - (Number(gsap.getProperty(landing, "y")) || 0);
+      var margin = parseFloat(getComputedStyle(landing).scrollMarginTop) || 0;
+      window.scrollTo({ top: top - margin, behavior: "instant" });
+    };
+    var stopLanding = function () {
+      ScrollTrigger.removeEventListener("refresh", land);
+      window.removeEventListener("load", land);
+      landing = null;
+    };
+    land();
+    ScrollTrigger.addEventListener("refresh", land);
+    window.addEventListener("load", land);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { if (landing) land(); });
+    ["wheel", "touchstart", "pointerdown", "keydown"].forEach(function (type) {
+      window.addEventListener(type, stopLanding, { once: true, passive: true });
+    });
+  }
 
   /* ---------- Hover interactions ---------- */
   whenMouse(initHover);

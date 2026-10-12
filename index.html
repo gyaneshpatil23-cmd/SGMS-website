@@ -37,7 +37,10 @@
           <li><a href="clients.html" data-nav="clients">Clients</a></li>
           <li><a href="contact.html" data-nav="contact">Contact</a></li>
         </ul>
-        <a class="btn btn--gold" href="tel:+918600130048">Call 86001 30048</a>
+        <div class="nav-actions">
+          <button class="btn btn--outline-dark" type="button">Login</button>
+          <a class="btn btn--gold" href="tel:+918600130046">Call 86001 30046</a>
+        </div>
       </nav>
       <button class="nav-toggle" type="button" aria-label="Menu" aria-controls="nav"
         aria-expanded="false"><span></span><span></span></button>
@@ -56,8 +59,8 @@
             <span class="line"><span>filed <em>right</em></span></span>
             <span class="line"><span>the first time.</span></span>
           </h1>
-          <p class="lead" data-intro>SGMS Online Solutions is a service partner to the banking industry and to
-            individual borrowers, handling Notice of Intimation, registered mortgages and stamp duty challans from start
+          <p class="lead" data-intro>SGMS Online Solutions is a service partner to the banking industry, handling Notice
+            of Intimation, registered mortgages and stamp duty challans from start
             to finish.</p>
           <div class="hero-actions" data-intro>
             <a class="btn btn--gold" href="services.html">Explore services
@@ -70,22 +73,73 @@
           </div>
         </div>
 
-        <div class="hero-art" aria-hidden="true">
-          <div class="sheet sheet--back"></div>
-          <div class="sheet sheet--main">
-            <div class="sheet-head">
-              <div><small>Equitable Mortgage</small><strong>Notice of Intimation</strong></div>
-              <span class="chip">Filed</span>
-            </div>
-            <ul class="sheet-list">
-              <li>Documents collected &amp; checked</li>
-              <li>Challan &mdash; MTR Form No. 6</li>
-              <li>e-SBTR generated</li>
-              <li>Filed with the Sub-Registrar</li>
-            </ul>
-            <div class="stamp">SGMS &middot; Nashik</div>
+        <!-- Expertise deck: clicking the card shows the next one -->
+        <div class="hero-art deck" data-deck role="group" aria-label="Our expertise">
+          <div class="sheet sheet--back" aria-hidden="true"></div>
+          <div class="deck-cards" aria-live="polite">
+            <article class="sheet sheet--main is-active">
+              <div class="sheet-head">
+                <div><small>Our expertise</small><strong>Equitable Mortgage (Notice of Intimation)</strong></div>
+              </div>
+              <ul class="sheet-list">
+                <li>Notice prepared from loan &amp; property details</li>
+                <li>Stamp duty &amp; filing fee paid</li>
+                <li>Filed online, filed copy handed over</li>
+              </ul>
+              <div class="sheet-foot">
+                <a class="btn btn--dark sheet-more" href="services.html#equitable-mortgage">Read more <svg
+                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+                    stroke-linejoin="round" aria-hidden="true">
+                    <path d="M5 12h14M13 6l6 6-6 6" />
+                  </svg></a>
+              </div>
+            </article>
+            <article class="sheet sheet--main">
+              <div class="sheet-head">
+                <div><small>Our expertise</small><strong>Registered Mortgage</strong></div>
+              </div>
+              <ul class="sheet-list">
+                <li>Challan for stamp duty &amp; registration fees</li>
+                <li>Registration at the Sub-Registrar office</li>
+                <li>Registered deed collected &amp; handed over</li>
+              </ul>
+              <div class="sheet-foot">
+                <a class="btn btn--dark sheet-more" href="services.html#registered-mortgage">Read more <svg
+                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+                    stroke-linejoin="round" aria-hidden="true">
+                    <path d="M5 12h14M13 6l6 6-6 6" />
+                  </svg></a>
+              </div>
+            </article>
+            <article class="sheet sheet--main">
+              <div class="sheet-head">
+                <div><small>Our expertise</small><strong>Documents Collection &mdash; PDD &amp; other</strong></div>
+              </div>
+              <ul class="sheet-list">
+                <li>Post-disbursement document (PDD) collection</li>
+                <li>Other loan-related document pick-up</li>
+                <li>Handover to the bank</li>
+              </ul>
+              <div class="sheet-foot">
+                <a class="btn btn--dark sheet-more" href="services.html#documents">Read more <svg viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
+                    aria-hidden="true">
+                    <path d="M5 12h14M13 6l6 6-6 6" />
+                  </svg></a>
+              </div>
+            </article>
           </div>
-          <div class="float-card"><strong>2019</strong><span>Serving since</span></div>
+          <div class="float-card" aria-hidden="true"><strong>2019</strong><span>Serving since</span></div>
+          <div class="deck-nav">
+            <span class="deck-hint">Click or drag the card</span>
+            <div class="deck-dots">
+              <button class="deck-dot" type="button" aria-label="Show Equitable Mortgage" aria-current="true"></button>
+              <button class="deck-dot" type="button" aria-label="Show Registered Mortgage"
+                aria-current="false"></button>
+              <button class="deck-dot" type="button" aria-label="Show Documents Collection"
+                aria-current="false"></button>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -96,7 +150,7 @@
         <div class="fact"><strong data-count="2019" data-from="1990">2019</strong><span>Year established</span></div>
         <div class="fact"><strong data-count="2023" data-from="1990">2023</strong><span>Registered as Pvt. Ltd.</span>
         </div>
-        <div class="fact"><strong data-count="8">08</strong><span>Full-time office staff</span></div>
+        <div class="fact"><strong data-count="10" data-suffix="+">10+</strong><span>Full-time office staff</span></div>
         <div class="fact"><strong data-count="2">02</strong><span>Offices &mdash; Nashik &amp; Pune</span></div>
       </div>
     </section>
@@ -238,7 +292,7 @@
       <div class="wrap">
         <h2 data-reveal>Have a mortgage file that needs to move?</h2>
         <div class="cta-actions" data-reveal>
-          <a class="btn btn--dark" href="tel:+918600130048">Call 86001 30048</a>
+          <a class="btn btn--dark" href="tel:+918600130046">Call 86001 30046</a>
           <a class="btn btn--outline-dark" href="contact.html">Send an enquiry</a>
         </div>
       </div>
@@ -268,9 +322,7 @@
       <div>
         <h4>Contact</h4>
         <ul>
-          <li><a href="tel:+918600130048">+91 86001 30048</a></li>
-          <li><a href="tel:+918600130049">+91 86001 30049</a></li>
-          <li><a href="tel:+917757968471">+91 77579 68471</a></li>
+          <li><a href="tel:+918600130046">+91 86001 30046</a></li>
           <li><a href="tel:+917719068630">+91 77190 68630</a></li>
           <li><a href="mailto:sgmsservices2023@gmail.com">sgmsservices2023@gmail.com</a></li>
         </ul>
@@ -278,8 +330,8 @@
       <div>
         <h4>Offices</h4>
         <ul>
-          <li>Office No. 23, 4th Floor, Sai Meghdoot Complex, Pandit Colony, Nashik &ndash; 422005</li>
-          <li>Singh Business House, Office No. 8, Anand Apartment, 249 Shanivar Peth, Pune &ndash; 411030</li>
+          <li>Office No-23, 4th Floor, Sai Meghdoot Complex, Lane No 5 Pandit Colony, Nashik-422005.</li>
+          <li>SINGH BUSINESS HOUSE, 249 Shaniwar Peth, Anand Appt office No 08 (Cabin B3) Near Vartak Garden, Pune-411030.</li>
         </ul>
       </div>
     </div>
