@@ -142,6 +142,24 @@
       if (card._stop) { card._stop(); card._stop = null; }
     };
 
+    // Autoplay: the deck turns itself over every few seconds. It waits while someone is
+    // pointing at it, holding it or tabbing through it, and while it is out of sight.
+    // Any change of card, by hand or not, starts the wait again.
+    var AUTO_DELAY = 3000;
+    var autoTimer = null, holds = {};
+    var schedule = function () {
+      clearTimeout(autoTimer);
+      // content that moves on its own is left out under reduced motion
+      if (reduceMotion) return;
+      for (var name in holds) if (holds[name]) return;
+      autoTimer = setTimeout(function () { showCard(current + 1); }, AUTO_DELAY);
+    };
+    var hold = function (name, on) {
+      if (!!holds[name] === on) return;
+      holds[name] = on;
+      schedule();
+    };
+
     var showCard = function (i, thrown) {
       i = (i + cards.length) % cards.length;
       if (i === current) return;
@@ -150,6 +168,7 @@
       var prevOpacity = getComputedStyle(prev).opacity;
       var nextOpacity = getComputedStyle(next).opacity;
       current = i;
+      schedule();
       cards.forEach(function (c, n) { c.classList.toggle("is-active", n === i); });
       dots.forEach(function (d, n) { d.setAttribute("aria-current", String(n === i)); });
       if (!animated) return;
@@ -157,18 +176,27 @@
       stopSpring(next);
       gsap.set(prev, { autoAlpha: prevOpacity });
       if (!thrown) {
-        // old card slips to the back
-        gsap.to(prev, { autoAlpha: 0, x: 40, rotation: 4, duration: 0.3, ease: "power2.out", overwrite: true, clearProps: "all" });
+        // old card sinks back onto the pile behind (where .sheet--back sits) as the new one
+        // comes forward, so the swap reads as one shuffle rather than a cut. Stacking is set
+        // explicitly: by DOM order, going from the last card back to the first would
+        // otherwise slide the outgoing card over the incoming one.
+        gsap.set(prev, { zIndex: 1 });
+        gsap.set(next, { zIndex: 2 });
+        gsap.to(prev, {
+          autoAlpha: 0, x: 18, y: 6, scale: 0.96, rotation: 6,
+          duration: 0.6, ease: "power2.inOut", overwrite: true, clearProps: "all"
+        });
       }
-      // new card rises into place; if it was still on its way out it turns round from where it is
+      // new card lifts off the pile into place; if it was still on its way out it turns round
+      // from where it is. expo.out settles like a critically damped spring: fast start, no bounce.
       gsap.set(next, { autoAlpha: nextOpacity });
-      if (nextOpacity < 0.05) gsap.set(next, { x: 0, y: 26, scale: 0.97, rotation: REST_ROTATION });
+      if (nextOpacity < 0.05) gsap.set(next, { x: 12, y: 22, scale: 0.96, rotation: 3 });
       gsap.to(next, {
         autoAlpha: 1, x: 0, y: 0, scale: 1, rotation: REST_ROTATION,
-        duration: 0.45, ease: "power3.out", overwrite: true, clearProps: "all"
+        duration: 0.75, ease: "expo.out", overwrite: true, clearProps: "all"
       });
-      gsap.fromTo(next.querySelectorAll(".sheet-list li"), { autoAlpha: 0, x: -10 },
-        { autoAlpha: 1, x: 0, duration: 0.35, stagger: 0.05, delay: 0.1, ease: "power3.out", overwrite: true, clearProps: "all" });
+      gsap.fromTo(next.querySelectorAll(".sheet-list li"), { autoAlpha: 0, y: 6 },
+        { autoAlpha: 1, y: 0, duration: 0.5, stagger: 0.06, delay: 0.15, ease: "power2.out", overwrite: true, clearProps: "all" });
     };
 
     deck.addEventListener("click", function (e) {
@@ -179,6 +207,31 @@
       if (e.target.closest("a")) return;
       if (e.target.closest(".sheet--main")) showCard(current + 1);
     });
+
+    deck.addEventListener("pointerenter", function (e) { if (e.pointerType === "mouse") hold("hover", true); });
+    deck.addEventListener("pointerleave", function () { hold("hover", false); });
+    deck.addEventListener("pointerdown", function () { hold("press", true); });
+    ["pointerup", "pointercancel"].forEach(function (type) {
+      window.addEventListener(type, function () { hold("press", false); });
+    });
+    // keyboard focus only: a dot clicked with the mouse keeps focus but nobody is tabbing
+    var live = deck.querySelector("[aria-live]");
+    var setFocus = function (on) {
+      hold("focus", on);
+      // changes are read out only while someone is working the deck, not on every automatic turn
+      if (live) live.setAttribute("aria-live", on ? "polite" : "off");
+    };
+    setFocus(false);
+    deck.addEventListener("focusin", function (e) { if (e.target.matches(":focus-visible")) setFocus(true); });
+    deck.addEventListener("focusout", function (e) { if (!deck.contains(e.relatedTarget)) setFocus(false); });
+    document.addEventListener("visibilitychange", function () { hold("hidden", document.hidden); });
+    if ("IntersectionObserver" in window) {
+      holds.offscreen = true;
+      new IntersectionObserver(function (entries) {
+        hold("offscreen", !entries[entries.length - 1].isIntersecting);
+      }, { threshold: 0.4 }).observe(deck);
+    }
+    schedule();
 
     // where a card released at this speed would come to rest (same decay as scrolling)
     var project = function (velocity) { return (velocity / 1000) * 0.995 / (1 - 0.995); };
@@ -273,12 +326,19 @@
     });
   }
 
-  /* ---------- Contact form: compose an email ---------- */
+  /* ---------- Contact form: post to send-enquiry.php ---------- */
   var form = document.querySelector("[data-contact-form]");
   if (form) {
-    form.addEventListener("submit", function (e) {
-      e.preventDefault();
-      var d = new FormData(form);
+    var note = form.querySelector(".form-note");
+    var submit = form.querySelector('[type="submit"]');
+    var say = function (text, state) {
+      if (!note) return;
+      note.textContent = text;
+      if (state) note.setAttribute("data-state", state);
+      else note.removeAttribute("data-state");
+    };
+    // the server can't send (no PHP, mail blocked, offline): hand the enquiry to the visitor's email app
+    var composeInstead = function (d) {
       var subject = "Enquiry: " + (d.get("service") || "General") + " — " + d.get("name");
       var body = [
         "Name: " + d.get("name"),
@@ -292,8 +352,77 @@
         "mailto:" + form.getAttribute("data-to") +
         "?subject=" + encodeURIComponent(subject) +
         "&body=" + encodeURIComponent(body);
-      var note = form.querySelector(".form-note");
-      if (note) note.textContent = "Your email app should now be open with the enquiry filled in. Press send there to reach us.";
+      say("We could not send it from here, so your email app should now be open with the enquiry filled in. Press send there to reach us.", "error");
+    };
+    // Inline validation: each field explains its own problem, next to it. A field is checked
+    // when the visitor leaves it with something typed, and an error clears the moment it is
+    // fixed; an empty field tabbed past is left alone until they try to send.
+    var rules = {
+      name: function (v) { return v ? "" : "Please enter your name."; },
+      phone: function (v) {
+        if (!v) return "Please enter your phone number.";
+        return /^[0-9+()\-\s]{7,30}$/.test(v) ? "" : "Please enter a valid phone number.";
+      },
+      service: function (v) { return v ? "" : "Please choose a service."; },
+      message: function (v) { return v ? "" : "Please tell us a little about your enquiry."; }
+    };
+    var check = function (input) {
+      var msg = rules[input.name](input.value.trim());
+      var field = input.closest(".field");
+      var err = field.querySelector(".field-error");
+      if (!err && msg) {
+        err = document.createElement("p");
+        err.className = "field-error";
+        err.id = input.id + "-error";
+        field.appendChild(err);
+        input.setAttribute("aria-describedby", err.id);
+      }
+      if (err) err.textContent = msg;
+      field.classList.toggle("is-invalid", !!msg);
+      if (msg) input.setAttribute("aria-invalid", "true");
+      else input.removeAttribute("aria-invalid");
+      return !msg;
+    };
+    // the browser's own bubbles appear only on submit and one at a time
+    form.noValidate = true;
+    Object.keys(rules).forEach(function (name) {
+      var input = form.elements[name];
+      input.addEventListener("blur", function () { if (input.value.trim()) check(input); });
+      ["input", "change"].forEach(function (type) {
+        input.addEventListener(type, function () {
+          if (input.closest(".field").classList.contains("is-invalid")) check(input);
+        });
+      });
+    });
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      if (submit.disabled) return;
+      var invalid = Object.keys(rules).filter(function (name) { return !check(form.elements[name]); });
+      if (invalid.length) {
+        form.elements[invalid[0]].focus();
+        say(invalid.length === 1 ? "Please check the highlighted field." : "Please check the highlighted fields.", "error");
+        return;
+      }
+      var d = new FormData(form);
+      submit.disabled = true;
+      say("Sending your enquiry…");
+      fetch(form.getAttribute("action"), { method: "POST", body: d, headers: { Accept: "application/json" } })
+        .then(function (res) {
+          return res.json().then(function (data) { return { status: res.status, data: data }; });
+        })
+        .then(function (r) {
+          if (r.data.ok) {
+            form.reset();
+            say(r.data.message, "success");
+          } else if (r.status === 422) {
+            say(r.data.message, "error");
+          } else {
+            composeInstead(d);
+          }
+        })
+        .catch(function () { composeInstead(d); })
+        .then(function () { submit.disabled = false; });
     });
   }
 
@@ -534,13 +663,28 @@
     });
   });
 
-  /* ---------- Marquee: constant drift that speeds up with scroll ---------- */
+  /* ---------- Marquee: constant drift that speeds up with scroll ----------
+     Pointing at a strip (or holding it on a touchscreen) eases it to a stop so it can be
+     read, and letting go eases it back up to speed. */
   gsap.utils.toArray(".marquee-track").forEach(function (track) {
     track.innerHTML += track.innerHTML;
     var loop = gsap.to(track, { xPercent: -50, duration: 28, ease: "none", repeat: -1 });
+    var strip = track.parentNode, paused = false;
+    var setPaused = function (on) {
+      if (on === paused) return;
+      paused = on;
+      gsap.to(loop, { timeScale: on ? 0 : 1, duration: on ? 0.4 : 0.6, ease: "power2.out", overwrite: true });
+    };
+    strip.addEventListener("pointerenter", function (e) { if (e.pointerType === "mouse") setPaused(true); });
+    strip.addEventListener("pointerleave", function () { setPaused(false); });
+    strip.addEventListener("pointerdown", function (e) { if (e.pointerType !== "mouse") setPaused(true); });
+    ["pointerup", "pointercancel"].forEach(function (type) {
+      strip.addEventListener(type, function (e) { if (e.pointerType !== "mouse") setPaused(false); });
+    });
     ScrollTrigger.create({
       trigger: track, start: "top bottom", end: "bottom top",
       onUpdate: function (self) {
+        if (paused) return;
         var boost = Math.min(Math.abs(self.getVelocity()) / 400, 4);
         gsap.to(loop, { timeScale: 1 + boost, duration: 0.2, overwrite: true });
         gsap.to(loop, { timeScale: 1, duration: 1, delay: 0.2 });
