@@ -86,28 +86,29 @@
           </div>
         </div>
 
-        <form class="form" action="send-enquiry.php" method="post" data-contact-form data-to="directors@sgmsonlinesolutions.com" data-reveal>
+        <form class="form" action="enquiry.php" method="post" data-contact-form data-reveal>
           <div class="form-trap" aria-hidden="true"><label for="website">Leave this field empty</label><input id="website" name="website" type="text" tabindex="-1" autocomplete="off"></div>
           <h2 style="font-size:clamp(1.6rem,2.6vw,2.1rem)">Send an enquiry</h2>
           <div class="form-row">
             <div class="field"><label for="name">Your name</label><input id="name" name="name" type="text" autocomplete="name" required></div>
-            <div class="field"><label for="phone">Phone</label><input id="phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" required></div>
+            <div class="field"><label for="phone">Mobile number</label><input id="phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" maxlength="16" placeholder="10-digit mobile number" required></div>
           </div>
           <div class="form-row">
-            <div class="field"><label for="organisation">Bank / organisation <span style="text-transform:none;letter-spacing:0;font-weight:500">(optional)</span></label><input id="organisation" name="organisation" type="text" autocomplete="organization"></div>
-            <div class="field">
-              <label for="service">Service</label>
-              <select id="service" name="service" required>
-                <option value="" selected disabled>Select a service</option>
-                <option>Equitable Mortgage (Notice of Intimation)</option>
-                <option>Registered Mortgage</option>
-                <option>Challan MTR Form No. 6 / e-SBTR</option>
-                <option>Documents Collection (PDD &amp; other)</option>
-                <option>Client Background Checks (FI)</option>
-                <option>Property Valuation Services</option>
-                <option>Other</option>
-              </select>
-            </div>
+            <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" autocomplete="email" inputmode="email" maxlength="120" placeholder="you@example.com" required></div>
+            <div class="field"><label for="organisation">Bank / organisation</label><input id="organisation" name="organisation" type="text" autocomplete="organization" maxlength="150" required></div>
+          </div>
+          <div class="field">
+            <label for="service">Service</label>
+            <select id="service" name="service" required>
+              <option value="" selected disabled>Select a service</option>
+              <option>Equitable Mortgage (Notice of Intimation)</option>
+              <option>Registered Mortgage</option>
+              <option>Challan MTR Form No. 6 / e-SBTR</option>
+              <option>Documents Collection (PDD &amp; other)</option>
+              <option>Client Background Checks (FI)</option>
+              <option>Property Valuation Services</option>
+              <option>Other</option>
+            </select>
           </div>
           <div class="field"><label for="message">Message</label><textarea id="message" name="message" required></textarea></div>
           <button class="btn btn--dark" type="submit">Send enquiry
@@ -147,7 +148,7 @@
         <a class="logo" href="index.html">
           <img class="logo-img" src="SGMS_images/SGMS_logo_full_transparent.png" alt="SGMS Online Solutions Pvt. Ltd." width="2616" height="793">
         </a>
-        <p>Service provider to banks, NBFCs and individuals in Nashik and Pune for mortgage documentation, Notice of Intimation filing, challans and allied services.</p>
+        <p>Supporting banks, NBFCs, and individuals with documentation, registration, Notice of Intimation, PDD collection, hypothecation, and allied services across Nashik and Pune.</p>
       </div>
       <div>
         <h4>Company</h4>

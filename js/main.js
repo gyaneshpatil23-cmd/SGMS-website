@@ -326,7 +326,7 @@
     });
   }
 
-  /* ---------- Contact form: post to send-enquiry.php ---------- */
+  /* ---------- Contact form: sent through enquiry.php ---------- */
   var form = document.querySelector("[data-contact-form]");
   if (form) {
     var note = form.querySelector(".form-note");
@@ -337,32 +337,30 @@
       if (state) note.setAttribute("data-state", state);
       else note.removeAttribute("data-state");
     };
-    // the server can't send (no PHP, mail blocked, offline): hand the enquiry to the visitor's email app
-    var composeInstead = function (d) {
-      var subject = "Enquiry: " + (d.get("service") || "General") + " — " + d.get("name");
-      var body = [
-        "Name: " + d.get("name"),
-        "Phone: " + d.get("phone"),
-        "Organisation: " + (d.get("organisation") || "-"),
-        "Service: " + d.get("service"),
-        "",
-        d.get("message")
-      ].join("\n");
-      window.location.href =
-        "mailto:" + form.getAttribute("data-to") +
-        "?subject=" + encodeURIComponent(subject) +
-        "&body=" + encodeURIComponent(body);
-      say("We could not send it from here, so your email app should now be open with the enquiry filled in. Press send there to reach us.", "error");
+    // the server can't send (script missing, mail blocked, offline): the visitor keeps what
+    // they typed and gets another way to reach us
+    var failed = function () {
+      say("Sorry, your enquiry could not be sent right now. Please try again in a moment, or call us on +91 86001 30046.", "error");
     };
     // Inline validation: each field explains its own problem, next to it. A field is checked
     // when the visitor leaves it with something typed, and an error clears the moment it is
     // fixed; an empty field tabbed past is left alone until they try to send.
     var rules = {
-      name: function (v) { return v ? "" : "Please enter your name."; },
-      phone: function (v) {
-        if (!v) return "Please enter your phone number.";
-        return /^[0-9+()\-\s]{7,30}$/.test(v) ? "" : "Please enter a valid phone number.";
+      name: function (v) {
+        if (!v) return "Please enter your name.";
+        return /[A-Za-zऀ-ॿ]/.test(v) && v.length >= 2 ? "" : "Please enter your full name.";
       },
+      // Indian mobile: 10 digits starting 6–9, optionally written with +91, 91 or 0 in front,
+      // and with spaces or dashes anywhere (same rule as enquiry.php)
+      phone: function (v) {
+        if (!v) return "Please enter your mobile number.";
+        return /^(\+?91|0)?[6-9]\d{9}$/.test(v.replace(/[\s\-()]/g, "")) ? "" : "Please enter a valid 10-digit mobile number.";
+      },
+      email: function (v) {
+        if (!v) return "Please enter your email address.";
+        return /^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(v) ? "" : "Please enter a valid email address, like name@gmail.com.";
+      },
+      organisation: function (v) { return v ? "" : "Please enter your bank or organisation."; },
       service: function (v) { return v ? "" : "Please choose a service."; },
       message: function (v) { return v ? "" : "Please tell us a little about your enquiry."; }
     };
@@ -405,23 +403,23 @@
         return;
       }
       var d = new FormData(form);
+      var sent = function () {
+        form.reset();
+        say("Thank you! We have received your enquiry and our team will get back to you.", "success");
+      };
+      // the hidden trap field is only ever filled in by bots: look successful, send nothing
+      if (d.get("website")) { sent(); return; }
+      d.delete("website");
       submit.disabled = true;
       say("Sending your enquiry…");
-      fetch(form.getAttribute("action"), { method: "POST", body: d, headers: { Accept: "application/json" } })
-        .then(function (res) {
-          return res.json().then(function (data) { return { status: res.status, data: data }; });
+      // enquiry.php answers an AJAX (GET) request with 1 when the mail went out, 0 when not
+      fetch(form.getAttribute("action") + "?" + new URLSearchParams(d).toString())
+        .then(function (res) { return res.text(); })
+        .then(function (text) {
+          if (text.trim() === "1") sent();
+          else failed();
         })
-        .then(function (r) {
-          if (r.data.ok) {
-            form.reset();
-            say(r.data.message, "success");
-          } else if (r.status === 422) {
-            say(r.data.message, "error");
-          } else {
-            composeInstead(d);
-          }
-        })
-        .catch(function () { composeInstead(d); })
+        .catch(function () { failed(); })
         .then(function () { submit.disabled = false; });
     });
   }
