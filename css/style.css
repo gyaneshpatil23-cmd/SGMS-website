@@ -340,15 +340,11 @@ em { font-style: italic; color: var(--accent-text); }
 }
 .marquee-track span::after { content: "✦"; font-style: normal; font-size: 0.5em; color: var(--gold); }
 
-/* values strip closing the About page's core values section */
-/* the negative margin cancels the section's bottom padding so the strip sits flush on the next section */
-.marquee--values { margin-top: calc(var(--section) * 0.5); margin-bottom: calc(-1 * var(--section)); }
-
 /* locations strip on the home page */
-.locations { padding-block: clamp(48px, 6vw, 72px) clamp(40px, 5vw, 60px); }
-.locations .eyebrow { margin-bottom: 18px; }
-.marquee--dark { background: transparent; border-color: rgba(255, 255, 255, 0.14); }
-.marquee--dark .marquee-track span { color: #fff; font-style: normal; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
+.locations { padding-block: clamp(28px, 3.5vw, 40px) clamp(22px, 3vw, 32px); }
+.locations .eyebrow { margin-bottom: 12px; }
+.marquee--locations { padding-block: 16px; background: transparent; border-color: var(--line); }
+.marquee--locations .marquee-track span { color: var(--ink); font-style: normal; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; font-size: clamp(1.3rem, 2.6vw, 2rem); }
 
 /* ---------- About ---------- */
 .vm { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
@@ -443,20 +439,20 @@ em { font-style: italic; color: var(--accent-text); }
 .office .badge { color: var(--accent-text); }
 
 /* ---------- Footer ---------- */
-.site-footer { background: #fff; color: var(--muted); border-top: 1px solid var(--line); padding-top: clamp(56px, 7vw, 88px); font-size: 0.93rem; }
+.site-footer { background: var(--paper); color: var(--muted); border-top: 1px solid var(--line); padding-top: clamp(56px, 7vw, 88px); }
 .footer-grid { display: grid; grid-template-columns: 1.3fr 0.6fr auto 1.2fr; gap: 40px; padding-bottom: 52px; }
-.footer-grid h4 { font-size: 0.76rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent-text); margin-bottom: 18px; }
-.footer-grid ul { display: grid; gap: 10px; }
-/* offices: each address wraps over several lines, so they need a wider gap to read as two */
-.footer-grid > div:last-child ul { row-gap: 22px; }
-/* contact: phone numbers and email addresses read as two groups, spaced like the addresses */
-.footer-grid li:has(> a[href^="tel:"]) + li:has(> a[href^="mailto:"]) { margin-top: 12px; }
+.footer-grid h4 { font-size: 0.88rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent-text); margin-bottom: 18px; }
+/* single-line links sit at the same rhythm as the wrapped lines of the description and addresses */
+.footer-grid ul { display: grid; gap: 4px; }
+/* offices: the two addresses read as two blocks; contact: phone numbers and emails read as two groups. Both use the same gap */
+.footer-grid > div:last-child ul { row-gap: 18px; }
+.footer-grid li:has(> a[href^="tel:"]) + li:has(> a[href^="mailto:"]) { margin-top: 14px; }
 .footer-grid a { transition: color 0.2s; }
-.footer-grid a:hover { color: var(--ink); }
+.footer-grid a:hover { color: var(--accent-text); }
 .footer-about { display: grid; gap: 18px; justify-items: start; max-width: 34ch; }
 .footer-bottom {
   display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px;
-  padding-block: 24px; border-top: 1px solid var(--line); font-size: 0.82rem;
+  padding-block: 24px; border-top: 1px solid var(--line); font-size: 0.9rem;
 }
 
 .footer-credit { background: var(--gold); color: var(--ink); }
@@ -545,9 +541,13 @@ blockquote > [class$="line-mask"] { padding-bottom: 0.12em; margin-bottom: -0.12
   .fact:nth-child(odd) { border-left: 0; padding-left: 0; }
   .fact:nth-child(n + 3) { border-top: 1px solid var(--line-light); }
   .values { grid-template-columns: 1fr 1fr; }
-  .client-grid { gap: 8px 20px; }
+  /* phones: three columns leave a wide logo ~80px across, too small to read. Kotak (first)
+     takes its own row and the other eight sit two to a row */
+  .client-grid { grid-template-columns: 1fr 1fr; gap: 8px 20px; }
   .client { min-height: 96px; padding: 8px; }
+  .client:first-child { grid-column: 1 / -1; }
   .client img { max-height: 54px; }
+  .client:first-child img { max-height: 60px; }
   .details div { grid-template-columns: 1fr; gap: 4px; }
   .service-row { grid-template-columns: 1fr; }
   .service-row .body { grid-column: auto; }
@@ -559,7 +559,7 @@ blockquote > [class$="line-mask"] { padding-bottom: 0.12em; margin-bottom: -0.12
   .person { flex-direction: column; align-items: flex-start; }
   .logo-img { height: 42px; }
   /* compact footer: link lists run across the row instead of stacking */
-  .site-footer { padding-top: 36px; font-size: 0.88rem; }
+  .site-footer { padding-top: 36px; }
   .site-footer .logo-img { height: 44px; margin-left: -4px; }
   .footer-grid { gap: 22px; padding-bottom: 28px; }
   .footer-about { gap: 10px; max-width: none; }
